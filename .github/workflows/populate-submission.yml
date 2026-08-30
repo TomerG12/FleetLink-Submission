@@ -1,0 +1,51 @@
+name: Populate submission repository
+
+on:
+  push:
+    paths:
+      - .github/workflows/populate-submission.yml
+
+permissions:
+  contents: write
+
+jobs:
+  populate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out submission repository
+        uses: actions/checkout@v4
+
+      - name: Check out final FleetLink source
+        run: |
+          git clone https://github.com/TomerG12/FleetLink.git /tmp/fleetlink-source
+          git -C /tmp/fleetlink-source checkout 41a96afec7bf50f8308780a44b971756bac87b15
+          test "$(git -C /tmp/fleetlink-source rev-parse HEAD)" = "41a96afec7bf50f8308780a44b971756bac87b15"
+
+      - name: Copy submission source tree
+        run: |
+          rm -rf .mvn client server shared
+          rm -f .gitignore pom.xml mvnw mvnw.cmd
+          cp /tmp/fleetlink-source/.gitignore .
+          cp /tmp/fleetlink-source/pom.xml .
+          cp /tmp/fleetlink-source/mvnw .
+          cp /tmp/fleetlink-source/mvnw.cmd .
+          cp -R /tmp/fleetlink-source/.mvn .
+          cp -R /tmp/fleetlink-source/client .
+          cp -R /tmp/fleetlink-source/server .
+          cp -R /tmp/fleetlink-source/shared .
+          mkdir -p Documentation
+          touch Documentation/.gitkeep
+          find . -type d -name target -prune -exec rm -rf {} +
+          rm -rf data
+
+      - name: Commit submission source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .gitignore .mvn client server shared pom.xml mvnw mvnw.cmd Documentation/.gitkeep
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "Populate final FleetLink submission source"
+          git push
